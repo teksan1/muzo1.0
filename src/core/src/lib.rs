@@ -3033,7 +3033,6 @@ impl BackendState {
     pub async fn check_deps(&self) -> ipc_contract::CheckDepsResponse {
         let python_ok = venv_manager::is_venv_ready();
         let ffmpeg_ok = which_binary("ffmpeg");
-        let git_ok = which_binary("git");
 
         let (yt_dlp_ok, votify_ok, gamdl_ok, bento4_ok) = if python_ok {
             let mut pip_cmd = tokio::process::Command::new(venv_manager::get_venv_python());
@@ -3058,11 +3057,11 @@ impl BackendState {
         ipc_contract::CheckDepsResponse {
             ffmpeg: ffmpeg_ok,
             python: python_ok,
-            git: git_ok,
             yt_dlp: yt_dlp_ok,
             votify: votify_ok,
             gamdl: gamdl_ok,
             bento4: bento4_ok,
+            is_sandboxed: crate::sandbox::is_sandboxed(),
         }
     }
 
@@ -3104,10 +3103,6 @@ impl BackendState {
         };
 
         let result: MhResult<()> = match req.dependency.as_str() {
-            "git" => {
-                let r = installers::git::download_and_install_git(|pct, msg| make_progress(pct, msg)).await;
-                r
-            }
             "python" => {
                 match venv_manager::ensure_venv(|pct, msg| make_progress(pct, msg)).await {
                     Ok(()) => Ok(()),
@@ -3301,7 +3296,7 @@ impl BackendState {
     pub async fn get_dependency_versions(&self) -> ipc_contract::GetDependencyVersionsResponse {
         let mut versions = std::collections::HashMap::new();
 
-        for bin in &["ffmpeg", "git"] {
+        for bin in &["ffmpeg"] {
             if let Some(v) = binary_version(bin) {
                 versions.insert(bin.to_string(), v);
             }

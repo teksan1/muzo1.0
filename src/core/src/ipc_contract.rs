@@ -346,11 +346,11 @@ pub struct ClearDatabaseResponse {
 pub struct CheckDepsResponse {
     pub ffmpeg: bool,
     pub python: bool,
-    pub git: bool,
     pub yt_dlp: bool,
     pub votify: bool,
     pub gamdl: bool,
     pub bento4: bool,
+    pub is_sandboxed: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
