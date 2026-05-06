@@ -11,19 +11,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { CheckCircle, XCircle, X, FolderOpen, ScrollText, Square } from 'lucide-react';
+import { CircleCheck, CircleX, X, FolderOpen, ScrollText, Square } from 'lucide-react';
 import { downloadService } from '@/services/ipc/downloads';
 import { useNotificationStore } from '@/stores/useNotificationStore';
 import { useDownloadStore } from '@/stores/useDownloadStore';
 import { useLogStore } from '@/stores/useLogStore';
 import { useNavigate } from 'react-router-dom';
-import { PlatformIcon, PLATFORM_COLORS, PLATFORM_LABELS, detectPlatform } from '@/utils/platforms';
+import { PlatformIcon } from '@/utils/platforms';
+import { PLATFORM_COLORS, PLATFORM_LABELS, detectPlatform } from '@/utils/platform-data';
 import { QUALITY_OPTIONS, PLAYLIST_PLATFORMS } from '@/utils/constants';
-import type { Platform } from '@/types';
+import type { Platform, OrpheusPlatform } from '@/types';
 
 export default function DownloadPage() {
   const [url, setUrl] = useState('');
-  const [platform, setPlatform] = useState<Platform | 'generic' | null>(null);
+  const [platform, setPlatform] = useState<Platform | OrpheusPlatform | 'generic' | null>(null);
   const [quality, setQuality] = useState('');
   const [isPlaylist, setIsPlaylist] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -198,7 +199,7 @@ export default function DownloadPage() {
                       {item.platform && item.platform !== 'generic' && (
                         <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                           <span style={{ color: PLATFORM_COLORS[item.platform as keyof typeof PLATFORM_COLORS] }}>
-                            <PlatformIcon platform={item.platform as any} size={12} />
+                            <PlatformIcon platform={item.platform} size={12} />
                           </span>
                           {PLATFORM_LABELS[item.platform as keyof typeof PLATFORM_LABELS] ?? item.platform}
                         </span>
@@ -232,7 +233,7 @@ export default function DownloadPage() {
 
                   {item.status === 'complete' && (
                     <div className="flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      <CircleCheck className="h-4 w-4 text-green-500" />
                       <span className="text-sm font-medium text-green-500">Complete</span>
                       {item.location && (
                         <Button
@@ -251,7 +252,7 @@ export default function DownloadPage() {
                   {item.status === 'error' && (
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 text-destructive">
-                        <XCircle className="h-4 w-4 shrink-0" />
+                        <CircleX className="h-4 w-4 shrink-0" />
                         <span className="text-sm truncate">{item.error}</span>
                       </div>
                       <Button

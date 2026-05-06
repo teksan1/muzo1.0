@@ -1,0 +1,526 @@
+name: Tauri Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ── 1. Build the React frontend once, shared across all platform jobs ─────
+  frontend:
+    name: Build React Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build:react
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-react
+          path: dist-react/
+          retention-days: 1
+
+  # ── 2. Tauri binary for every platform ───────────────────────────────────
+  #
+  # Linux DEB + AppImage only — RPM is built natively in the linux-rpm job
+  # below (Fedora container) to avoid broken symlinks when installed on Fedora.
+  tauri:
+    name: Tauri – ${{ matrix.name }}
+    needs: frontend
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # ── Linux (DEB + AppImage) ─────────────────────────────────────────
+          # Ubuntu 22.04 = glibc 2.35 for maximum distro compatibility.
+          # RPM is produced separately by the linux-rpm job (Fedora container).
+          - name: Linux x64
+            os: ubuntu-22.04
+            rust_target: ''
+            artifact: linux-x64
+
+          # ── Windows x64 ───────────────────────────────────────────────────
+          # Produces: .msi  .exe (NSIS)  + .msix (Microsoft Store, needs secret)
+          - name: Windows x64
+            os: windows-2022
+            rust_target: ''
+            artifact: windows-x64
+
+          # ── Windows ARM64 ─────────────────────────────────────────────────
+          # Native build on windows-11-arm; produces .msi + .exe (NSIS).
+          - name: Windows ARM64
+            os: windows-11-arm
+            rust_target: aarch64-pc-windows-msvc
+            artifact: windows-arm64
+
+          # ── macOS Intel (x86_64) ──────────────────────────────────────────
+          - name: macOS Intel
+            os: macos-15-intel
+            rust_target: x86_64-apple-darwin
+            artifact: macos-x64
+
+          # ── macOS Apple Silicon (ARM64) ────────────────────────────────────
+          - name: macOS Apple Silicon
+            os: macos-15
+            rust_target: aarch64-apple-darwin
+            artifact: macos-arm64
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Node (needed for npm ci) ──────────────────────────────────────────
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # ── Pre-built frontend (skip rebuilding on every platform) ────────────
+      - name: Download pre-built frontend
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-react
+          path: dist-react/
+
+      # ── Rust toolchain ────────────────────────────────────────────────────
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: . -> target
+
+      # ── cargo-tauri CLI (binstall = downloads pre-compiled, ~30 s) ────────
+      - uses: cargo-bins/cargo-binstall@main
+
+      - name: Install tauri-cli
+        run: cargo binstall --no-confirm tauri-cli@^2
+
+      # ── Linux system deps ─────────────────────────────────────────────────
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libgtk-3-dev
+
+      # ── npm ci (tauri build.rs / plugin macros need node at times) ────────
+      - run: npm ci
+
+      # ── Platform builds ───────────────────────────────────────────────────
+
+      # Linux: DEB + AppImage only (RPM handled by linux-rpm job via Fedora)
+      - name: Build (Linux)
+        if: runner.os == 'Linux'
+        working-directory: src/app
+        run: cargo tauri build --bundles deb,appimage
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # linuxdeploy ships as an AppImage; Ubuntu runners lack FUSE2
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+
+      # Windows x64 (native — no --target flag needed)
+      - name: Build (Windows x64)
+        if: runner.os == 'Windows' && matrix.rust_target == ''
+        working-directory: src/app
+        run: cargo tauri build
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+      # Windows ARM64 (native on windows-11-arm runner)
+      - name: Build (Windows ARM64)
+        if: runner.os == 'Windows' && matrix.rust_target != ''
+        working-directory: src/app
+        run: cargo tauri build --target ${{ matrix.rust_target }}
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+      # macOS (always cross-targets to guarantee the correct arch binary)
+      - name: Build (macOS)
+        if: runner.os == 'macOS'
+        working-directory: src/app
+        run: cargo tauri build --target ${{ matrix.rust_target }}
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # Apple signing/notarisation (all optional — skip to get unsigned DMGs)
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      # ── Windows x64: create MSIX for Microsoft Store ──────────────────────
+      # ARM64 MSIX requires a separate AppxManifest with ProcessorArchitecture=arm64;
+      # skipped here for now — x64 MSIX covers the majority of Store users.
+      - name: Create MSIX (Microsoft Store, x64 only)
+        if: runner.os == 'Windows' && matrix.rust_target == ''
+        shell: pwsh
+        continue-on-error: true   # skip gracefully if secret not set
+        env:
+          MS_STORE_PUBLISHER: ${{ secrets.MS_STORE_PUBLISHER }}
+        run: |
+          if (-not $env:MS_STORE_PUBLISHER) {
+            Write-Host "MS_STORE_PUBLISHER secret not set — skipping MSIX"; exit 0
+          }
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+
+          # Build the MSIX layout directory
+          New-Item -ItemType Directory -Path msix\Assets -Force | Out-Null
+          Copy-Item src\app\target\release\mediaharbor.exe  msix\
+
+          # Icons — resize properly with ImageMagick if available, else copy as-is
+          $magick = Get-Command magick -ErrorAction SilentlyContinue
+          function Copy-Icon($src, $dst, $size) {
+            if ($magick) { & magick $src -resize "${size}x${size}" $dst }
+            else          { Copy-Item $src $dst }
+          }
+          Copy-Icon src\app\icons\icon.png       msix\Assets\StoreLogo.png          50
+          Copy-Icon src\app\icons\128x128.png    msix\Assets\Square150x150Logo.png  150
+          Copy-Icon src\app\icons\32x32.png      msix\Assets\Square44x44Logo.png    44
+          Copy-Icon src\app\icons\128x128@2x.png msix\Assets\Wide310x150Logo.png    310
+
+          # Stamp the manifest template
+          (Get-Content packaging\windows\AppxManifest.xml -Raw) `
+            -replace '__VERSION__',   "$version.0" `
+            -replace '__PUBLISHER__', $env:MS_STORE_PUBLISHER |
+            Set-Content msix\AppxManifest.xml
+
+          # Find makeappx.exe from the Windows SDK
+          $makeappx = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" `
+                        -Recurse -Filter makeappx.exe |
+                      Where-Object { $_.FullName -match 'x64' } |
+                      Sort-Object FullName -Descending |
+                      Select-Object -First 1 -ExpandProperty FullName
+
+          & $makeappx pack /d msix /p "MediaHarbor_${version}_x64.msix" /nv
+          Write-Host "MSIX created: MediaHarbor_${version}_x64.msix"
+
+      # ── Collect everything into one directory ─────────────────────────────
+      - name: Collect artifacts
+        shell: bash
+        run: |
+          mkdir -p out
+          # Linux
+          find target -path '*/bundle/deb/*.deb'            -exec cp {} out/ \; 2>/dev/null || true
+          find target -path '*/bundle/appimage/*.AppImage'  -exec cp {} out/ \; 2>/dev/null || true
+          # Windows (x64 and ARM64)
+          find target -path '*/bundle/msi/*.msi'            -exec cp {} out/ \; 2>/dev/null || true
+          find target -path '*/bundle/nsis/*.exe'           -exec cp {} out/ \; 2>/dev/null || true
+          cp *.msix out/ 2>/dev/null || true
+          # macOS
+          find target -path '*/bundle/dmg/*.dmg'            -exec cp {} out/ \; 2>/dev/null || true
+          echo "=== artifacts ==="
+          ls -lh out/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tauri-${{ matrix.artifact }}
+          path: out/
+          retention-days: 7
+
+  # ── 3. Linux RPM (native Fedora build — avoids broken symlinks on Fedora) ─
+  #
+  # Fedora and Ubuntu differ in library paths and .so symlink layouts.
+  # Building the RPM inside a Fedora container ensures rpmbuild sees the
+  # correct Fedora paths, so the resulting RPM installs cleanly on
+  # Fedora, RHEL, AlmaLinux, Rocky Linux, and openSUSE.
+  linux-rpm:
+    name: Linux RPM (Fedora)
+    needs: frontend
+    runs-on: ubuntu-22.04
+    container:
+      image: fedora:41
+    steps:
+      # git is not present in the minimal Fedora image — install before checkout
+      - name: Install prerequisites
+        run: dnf install -y git curl findutils
+
+      - uses: actions/checkout@v4
+
+      - name: Install Fedora system dependencies
+        run: |
+          dnf install -y \
+            webkit2gtk4.1-devel \
+            gtk3-devel \
+            libayatana-appindicator-gtk3-devel \
+            librsvg2-devel \
+            patchelf \
+            openssl-devel \
+            nodejs npm \
+            gcc gcc-c++ make
+
+      - name: Download pre-built frontend
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-react
+          path: dist-react/
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: . -> target
+          key: fedora-41
+
+      - uses: cargo-bins/cargo-binstall@main
+
+      - name: Install tauri-cli
+        # binstall tries a prebuilt binary first; falls back to source compile
+        run: cargo binstall --no-confirm tauri-cli@^2
+
+      - run: npm ci
+
+      - name: Build RPM
+        working-directory: src/app
+        run: cargo tauri build --bundles rpm
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+      - name: Collect RPM
+        run: |
+          mkdir -p out
+          find target -path '*/bundle/rpm/*.rpm' -exec cp {} out/ \;
+          echo "=== RPM artifacts ==="
+          ls -lh out/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tauri-linux-rpm
+          path: out/
+          retention-days: 7
+
+  # ── 4. Flatpak ────────────────────────────────────────────────────────────
+
+  # Builds from source using the Rust and Node SDK extensions.
+  # Runs independently — does not depend on the tauri binary job.
+  flatpak:
+    name: Flatpak
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache flatpak-builder state
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/flatpak-builder
+          key: flatpak-builder-${{ hashFiles('packaging/flatpak/cargo-sources.json', 'packaging/flatpak/generated-sources.json') }}
+          restore-keys: flatpak-builder-
+
+      - name: Install flatpak-builder, GNOME 47 runtime, and SDK extensions
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+          sudo flatpak remote-add --if-not-exists flathub \
+            https://flathub.org/repo/flathub.flatpakrepo
+          sudo flatpak install -y --noninteractive flathub \
+            org.gnome.Platform//47 \
+            org.gnome.Sdk//47 \
+            org.freedesktop.Sdk.Extension.rust-stable//24.08 \
+            org.freedesktop.Sdk.Extension.node20//24.08
+
+      - name: Build Flatpak bundle
+        run: |
+          flatpak-builder \
+            --repo=flatpak-repo \
+            --force-clean \
+            flatpak-build-dir \
+            packaging/flatpak/org.mediaharbor.MediaHarbor.yml
+
+          flatpak build-bundle \
+            flatpak-repo \
+            MediaHarbor.flatpak \
+            org.mediaharbor.MediaHarbor
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flatpak
+          path: MediaHarbor.flatpak
+          retention-days: 7
+
+  # ── 5. GitHub Release ─────────────────────────────────────────────────────
+  release:
+    name: GitHub Release
+    needs: [tauri, flatpak, linux-rpm]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version
+        id: ver
+        run: echo "v=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Download all Tauri artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: tauri-*
+          path: assets/
+          merge-multiple: true
+
+      - name: Download Flatpak
+        uses: actions/download-artifact@v4
+        with:
+          name: flatpak
+          path: assets/
+
+      - name: Build release body with SHA256 checksums
+        shell: bash
+        run: |
+          cat > release_body.md << 'BODYEOF'
+          ## Installation
+
+          | Platform | File | How to install |
+          |---|---|---|
+          | **Linux (Debian/Ubuntu)** | `*.deb` | `sudo dpkg -i MediaHarbor_*.deb` |
+          | **Linux (Fedora/RHEL)** | `*.rpm` | `sudo rpm -i MediaHarbor_*.rpm` |
+          | **Linux (universal)** | `*.AppImage` | `chmod +x *.AppImage && ./MediaHarbor_*.AppImage` |
+          | **Linux (Flatpak)** | `MediaHarbor.flatpak` | `flatpak install MediaHarbor.flatpak` |
+          | **Linux (Snap)** | — | `sudo snap install mediaharbor` |
+          | **Arch Linux / AUR** | — | `paru -S mediaharbor` |
+          | **Windows x64 (installer)** | `*_x64-setup.exe` | Run the setup wizard |
+          | **Windows x64 (MSI)** | `*_x64.msi` | `msiexec /i MediaHarbor_*_x64.msi` |
+          | **Windows x64 (Microsoft Store)** | `*_x64.msix` | Double-click or `Add-AppxPackage` |
+          | **Windows ARM64 (installer)** | `*_aarch64-setup.exe` | Run the setup wizard |
+          | **Windows ARM64 (MSI)** | `*_aarch64.msi` | `msiexec /i MediaHarbor_*_aarch64.msi` |
+          | **macOS Intel** | `*_x64.dmg` | Open DMG and drag to Applications |
+          | **macOS Apple Silicon** | `*_aarch64.dmg` | Open DMG and drag to Applications |
+          BODYEOF
+
+          {
+            echo ''
+            echo '## SHA256 Checksums'
+            echo ''
+            echo '| File | SHA256 |'
+            echo '|---|---|'
+            for f in $(ls assets/ | sort); do
+              [ -f "assets/$f" ] || continue
+              sha=$(sha256sum "assets/$f" | awk '{print $1}')
+              printf '| `%s` | `%s` |\n' "$f" "$sha"
+            done
+          } >> release_body.md
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: MediaHarbor v${{ steps.ver.outputs.v }}
+          fail_on_unmatched_files: false
+          body_path: release_body.md
+          files: assets/**
+
+  # ── 6. Update snapcraft.yaml → triggers Snapcraft build service ───────────
+  snap-update:
+    name: Update snapcraft.yaml
+    needs: [release]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Read version
+        id: ver
+        run: echo "v=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Stamp version and DEB URL
+        run: |
+          V="${{ steps.ver.outputs.v }}"
+          sed -i "s/^version:.*/version: '${V}'/" snap/snapcraft.yaml
+          sed -i "s|releases/download/v[^/]*/MediaHarbor_[^/]*_amd64.deb|releases/download/v${V}/MediaHarbor_${V}_amd64.deb|" snap/snapcraft.yaml
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add snap/snapcraft.yaml
+          git diff --cached --quiet || git commit -m "chore: bump snap to v${{ steps.ver.outputs.v }} [skip ci]"
+          git push origin HEAD:main
+
+  # ── 7. Publish to AUR ─────────────────────────────────────────────────────
+  aur:
+    name: Publish to AUR
+    needs: [release]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version
+        id: ver
+        run: echo "v=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Compute SHA256 of source tarball
+        id: tarball
+        run: |
+          VERSION="${{ steps.ver.outputs.v }}"
+          URL="https://github.com/MediaHarbor/mediaharbor/archive/refs/tags/v${VERSION}.tar.gz"
+          SHA256=$(curl -fsSL "$URL" | sha256sum | awk '{print $1}')
+          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
+
+      - name: Set up SSH for AUR
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.AUR_SSH_PRIVATE_KEY }}" > ~/.ssh/aur
+          chmod 600 ~/.ssh/aur
+          ssh-keyscan -t ed25519 aur.archlinux.org >> ~/.ssh/known_hosts
+          cat >> ~/.ssh/config <<'EOF'
+          Host aur.archlinux.org
+            IdentityFile ~/.ssh/aur
+            User aur
+          EOF
+
+      - name: Clone AUR repository
+        run: git clone ssh://aur@aur.archlinux.org/mediaharbor.git aur-repo
+
+      - name: Update PKGBUILD and .SRCINFO
+        run: |
+          VERSION="${{ steps.ver.outputs.v }}"
+          SHA256="${{ steps.tarball.outputs.sha256 }}"
+
+          cp packaging/aur/PKGBUILD aur-repo/PKGBUILD
+          cd aur-repo
+
+          sed -i "s/^pkgver=.*/pkgver=${VERSION}/" PKGBUILD
+          sed -i "s/^pkgrel=.*/pkgrel=1/"          PKGBUILD
+          sed -i "s/sha256sums=('[^']*')/sha256sums=('${SHA256}')/" PKGBUILD
+
+          docker run --rm -v "$PWD:/pkg" -w /pkg archlinux:latest bash -c \
+            "pacman -Sy --noconfirm --needed base-devel 2>/dev/null && HOME=/root makepkg --printsrcinfo > .SRCINFO"
+
+      - name: Commit and push to AUR
+        run: |
+          cd aur-repo
+          git config user.email "noreply@mediaharbor.org"
+          git config user.name "Utku"
+          git add PKGBUILD .SRCINFO
+          git commit -m "update to v${{ steps.ver.outputs.v }}"
+          git push
