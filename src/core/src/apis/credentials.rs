@@ -42,8 +42,8 @@ pub fn load_credentials_or_default(path: &Path) -> ApiCredentials {
 
 pub fn bundled() -> ApiCredentials {
     ApiCredentials {
-        spotify_client_id:     "83f950693ddf4e6196c43d92db6f700f".into(),
-        spotify_client_secret: "41854f6fd822421283b5df1facbc0925".into(),
+        spotify_client_id:     "".into(),
+        spotify_client_secret: "".into(),
         tidal_client_id:       "N6Wz7fZO8PTt8Q5e".into(),
         tidal_client_secret:   "APESJMjvIY0fxS7QFiYqVMq0IECbcz7aon9A4pyGZ28=".into(),
         youtube_api_key:       option_env!("YOUTUBE_API_KEY").unwrap_or("").into(),
