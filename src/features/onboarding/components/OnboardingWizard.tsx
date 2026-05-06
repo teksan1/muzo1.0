@@ -24,7 +24,7 @@ const slideVariants = {
 const TOTAL_STEPS = 5;
 
 export function OnboardingWizard() {
-  const { isOpen, currentStep, direction, nextStep, prevStep, finishWizard } =
+  const { isOpen, currentStep, direction, nextStep, prevStep, finishWizard, downloadLocation } =
     useOnboardingStore();
   const [isInstalling, setIsInstalling] = useState(false);
   const [installAllDone, setInstallAllDone] = useState(false);
@@ -56,6 +56,7 @@ export function OnboardingWizard() {
   const isInstallSequenceStep = currentStep === 2;
   const installSequenceBlocked = isInstallSequenceStep && !installAllDone;
   const isFinalStep = currentStep === TOTAL_STEPS - 1;
+  const isBasicSetupBlocked = currentStep === 3 && !downloadLocation;
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
@@ -101,7 +102,7 @@ export function OnboardingWizard() {
               <Button
                 size="sm"
                 onClick={nextStep}
-                disabled={isInstalling || installSequenceBlocked}
+                disabled={isInstalling || installSequenceBlocked || isBasicSetupBlocked}
                 className="gap-1"
               >
                 {currentStep === 0 ? 'Get Started' : 'Next'}

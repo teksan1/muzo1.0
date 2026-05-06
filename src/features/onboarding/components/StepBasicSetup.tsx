@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { FolderOpen, Moon, Sun, Monitor } from 'lucide-react';
+import { FolderOpen, Moon, Sun, Monitor, TriangleAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/utils/cn';
 import { useOnboardingStore } from '../stores/useOnboardingStore';
@@ -14,12 +14,16 @@ const THEME_OPTIONS = [
 
 export function StepBasicSetup() {
   const { downloadLocation, theme, setDownloadLocation, setTheme } = useOnboardingStore();
+  const [isSandboxed, setIsSandboxed] = useState(false);
 
   useEffect(() => {
     window.electron?.settings.get().then((data) => {
       if (data?.downloadLocation) {
         setDownloadLocation(data.downloadLocation);
       }
+    });
+    window.electron?.updates.checkDeps().then((r) => {
+      setIsSandboxed(r.is_sandboxed ?? false);
     });
   }, [setDownloadLocation]);
 
@@ -63,6 +67,14 @@ export function StepBasicSetup() {
             Browse
           </Button>
         </div>
+        {isSandboxed && !downloadLocation && (
+          <div className="flex items-start gap-2 rounded-lg border border-yellow-500/40 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-600 dark:text-yellow-400">
+            <TriangleAlert className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+            <span>
+              Running in a sandboxed environment. Please choose a download folder — the default location may not be accessible if it is a symlink to an external drive.
+            </span>
+          </div>
+        )}
       </div>
       <div className="space-y-2">
         <p className="text-sm font-medium">Appearance</p>
