@@ -1,6 +1,6 @@
 [package]
 name = "mediaharbor"
-version = "1.1.9"
+version = "2.0.4"
 edition = "2021"
 description = "MediaHarbor desktop application"
 default-run = "mediaharbor"
@@ -15,7 +15,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 mediaharbor-core = { path = "../core" }
 
-tauri = { version = "2", features = ["protocol-asset"] }
+tauri = { version = "2", features = ["protocol-asset", "custom-protocol"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-fs = "2"

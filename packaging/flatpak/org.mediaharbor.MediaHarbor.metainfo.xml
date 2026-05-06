@@ -57,6 +57,7 @@
   </screenshots>
 
   <releases>
+    <release version="2.0.4" date="2026-05-06"/>
     <release version="2.0.0" date="2026-05-05">
       <description>
         <p>Full rewrite as a native desktop app using Tauri v2, React, and TypeScript:</p>
