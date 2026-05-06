@@ -7035,6 +7035,19 @@
     {
         "type": "archive",
         "archive-type": "tar-gzip",
+        "url": "https://static.crates.io/crates/tower-http/tower-http-0.6.10.crate",
+        "sha256": "68d6fdd9f81c2819c9a8b0e0cd91660e7746a8e6ea2ba7c6b2b057985f6bcb51",
+        "dest": "cargo/vendor/tower-http-0.6.10"
+    },
+    {
+        "type": "inline",
+        "contents": "{\"package\": \"68d6fdd9f81c2819c9a8b0e0cd91660e7746a8e6ea2ba7c6b2b057985f6bcb51\", \"files\": {}}",
+        "dest": "cargo/vendor/tower-http-0.6.10",
+        "dest-filename": ".cargo-checksum.json"
+    },
+    {
+        "type": "archive",
+        "archive-type": "tar-gzip",
         "url": "https://static.crates.io/crates/tower-layer/tower-layer-0.3.3.crate",
         "sha256": "121c2a6cda46980bb0fcd1647ffaf6cd3fc79a013de288782836f6df9c48780e",
         "dest": "cargo/vendor/tower-layer-0.3.3"
