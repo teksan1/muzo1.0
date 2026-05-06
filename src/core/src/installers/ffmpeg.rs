@@ -29,7 +29,6 @@ const LINUX_ARM_URL: &str =
 
 #[cfg(target_os = "macos")]
 struct RssItem {
-    version: String,
     url: String,
 }
 

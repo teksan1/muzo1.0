@@ -168,11 +168,13 @@ jobs:
       - name: Build (macOS)
         if: runner.os == 'macOS'
         working-directory: src/app
-        run: cargo tauri build --target ${{ matrix.rust_target }}
+        shell: bash
+        run: |
+          [ -z "$APPLE_CERTIFICATE" ] && unset APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID
+          cargo tauri build --target ${{ matrix.rust_target }}
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          # Apple signing/notarisation (all optional — skip to get unsigned DMGs)
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
@@ -357,10 +359,12 @@ jobs:
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         run: |
+          sed -i "s/YOUTUBE_API_KEY_PLACEHOLDER/${YOUTUBE_API_KEY}/" \
+            packaging/flatpak/org.mediaharbor.MediaHarbor.yml
+
           flatpak-builder \
             --repo=flatpak-repo \
             --force-clean \
-            --env YOUTUBE_API_KEY="$YOUTUBE_API_KEY" \
             flatpak-build-dir \
             packaging/flatpak/org.mediaharbor.MediaHarbor.yml
 
