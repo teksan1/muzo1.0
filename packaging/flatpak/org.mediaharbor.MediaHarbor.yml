@@ -1,14 +1,14 @@
 app-id: org.mediaharbor.MediaHarbor
 runtime: org.gnome.Platform
-runtime-version: '47'
+runtime-version: '50'
 sdk: org.gnome.Sdk
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.rust-stable
-  - org.freedesktop.Sdk.Extension.node20
+  - org.freedesktop.Sdk.Extension.node24
 command: mediaharbor
 
 build-options:
-  append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node20/bin
+  append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node24/bin
 
 finish-args:
   - --share=ipc
