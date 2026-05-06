@@ -64,13 +64,6 @@ jobs:
             rust_target: ''
             artifact: windows-x64
 
-          # ── Windows ARM64 ─────────────────────────────────────────────────
-          # Native build on windows-11-arm; produces .msi + .exe (NSIS).
-          - name: Windows ARM64
-            os: windows-11-arm
-            rust_target: aarch64-pc-windows-msvc
-            artifact: windows-arm64
-
           # ── macOS Intel (x86_64) ──────────────────────────────────────────
           - name: macOS Intel
             os: macos-15-intel
@@ -151,15 +144,6 @@ jobs:
         if: runner.os == 'Windows' && matrix.rust_target == ''
         working-directory: src/app
         run: cargo tauri build
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-
-      # Windows ARM64 (native on windows-11-arm runner)
-      - name: Build (Windows ARM64)
-        if: runner.os == 'Windows' && matrix.rust_target != ''
-        working-directory: src/app
-        run: cargo tauri build --target ${{ matrix.rust_target }}
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
@@ -425,8 +409,6 @@ jobs:
           | **Windows x64 (installer)** | `*_x64-setup.exe` | Run the setup wizard |
           | **Windows x64 (MSI)** | `*_x64.msi` | `msiexec /i MediaHarbor_*_x64.msi` |
           | **Windows x64 (Microsoft Store)** | `*_x64.msix` | Double-click or `Add-AppxPackage` |
-          | **Windows ARM64 (installer)** | `*_aarch64-setup.exe` | Run the setup wizard |
-          | **Windows ARM64 (MSI)** | `*_aarch64.msi` | `msiexec /i MediaHarbor_*_aarch64.msi` |
           | **macOS Intel** | `*_x64.dmg` | Open DMG and drag to Applications |
           | **macOS Apple Silicon** | `*_aarch64.dmg` | Open DMG and drag to Applications |
           BODYEOF
