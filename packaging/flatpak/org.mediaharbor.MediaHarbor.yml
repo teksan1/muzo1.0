@@ -13,7 +13,7 @@ build-options:
 finish-args:
   - --share=ipc
   - --socket=wayland
-  - --socket=x11
+  - --socket=fallback-x11
   - --device=dri
   - --socket=pulseaudio
   - --share=network
@@ -30,12 +30,15 @@ modules:
         CARGO_HOME: /run/build/mediaharbor/cargo-home
         RUSTUP_HOME: /usr/lib/sdk/rust-stable
         RUSTUP_TOOLCHAIN: stable
+        CARGO_INCREMENTAL: '0'
         npm_config_cache: /run/build/mediaharbor/flatpak-node/npm-cache
         YOUTUBE_API_KEY: YOUTUBE_API_KEY_PLACEHOLDER
 
     sources:
-      - type: dir
-        path: ../..
+      - type: git
+        url: https://github.com/MediaHarbor/mediaharbor.git
+        tag: GIT_TAG_PLACEHOLDER
+        commit: GIT_COMMIT_PLACEHOLDER
 
       - cargo-sources.json
 
