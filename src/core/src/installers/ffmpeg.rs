@@ -99,10 +99,7 @@ async fn fetch_latest_from_rss(feed_url: &str, label: &str) -> MhResult<RssItem>
         )));
     }
 
-    Ok(RssItem {
-        version: title.trim_end_matches(".zip").to_string(),
-        url: link,
-    })
+    Ok(RssItem { url: link })
 }
 
 #[allow(unused_variables)]

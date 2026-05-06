@@ -96,7 +96,7 @@ modules:
 
       # Build only the raw ELF binary. --bundles none skips .deb/.rpm/.AppImage
       # packaging which requires patchelf and linuxdeploy (not in the SDK).
-      - cd src/app && cargo tauri build --bundles none
+      - cd src/app && cargo build --release
 
       - install -Dm755 src/app/target/release/mediaharbor /app/bin/mediaharbor
       - install -Dm644 org.mediaharbor.MediaHarbor.desktop /app/share/applications/org.mediaharbor.MediaHarbor.desktop
