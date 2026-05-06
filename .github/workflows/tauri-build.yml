@@ -353,7 +353,7 @@ jobs:
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         run: |
-          sed -i "s/YOUTUBE_API_KEY_PLACEHOLDER/${YOUTUBE_API_KEY}/" \
+          sed -i "/npm_config_cache:/a\\        YOUTUBE_API_KEY: ${YOUTUBE_API_KEY}" \
             packaging/flatpak/org.mediaharbor.MediaHarbor.yml
           sed -i "s/GIT_TAG_PLACEHOLDER/${GITHUB_REF_NAME}/" \
             packaging/flatpak/org.mediaharbor.MediaHarbor.yml

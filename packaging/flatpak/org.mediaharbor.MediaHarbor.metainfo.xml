@@ -139,12 +139,6 @@
   <developer id="org.mediaharbor">
     <name>MediaHarbor Team</name>
   </developer>
-  <contributors>
-    <name>CrossyAtom46</name>
-    <name>eltociear</name>
-    <name>Phenix66</name>
-  </contributors>
-
   <branding>
     <color type="primary" scheme_preference="light">#fef3d8</color>
     <color type="primary" scheme_preference="dark">#1e0f38</color>
