@@ -25,12 +25,6 @@ const REQUIRED_DEPS: DepDef[] = [
     manualUrl: 'https://ffmpeg.org/download.html',
   },
   {
-    id: 'git',
-    label: 'Git',
-    why: 'Used to fetch and update OrpheusDL modules (SoundCloud, Beatport, etc).',
-    manualUrl: 'https://git-scm.com/downloads',
-  },
-  {
     id: 'ytdlp',
     label: 'yt-dlp',
     why: 'Handles all YouTube and YouTube Music downloads.',
@@ -75,7 +69,6 @@ export function StepInstallSequence({ onInstallingChange, onAllDone }: StepInsta
       setInstalled({
         python: r.python ?? false,
         ffmpeg: r.ffmpeg ?? false,
-        git: r.git ?? false,
         ytdlp: r.ytdlp ?? false,
         spotify: r.spotify ?? false,
         apple: r.apple ?? false,
@@ -118,7 +111,6 @@ export function StepInstallSequence({ onInstallingChange, onAllDone }: StepInsta
     const map: Record<string, boolean> = {
       python: r.python ?? false,
       ffmpeg: r.ffmpeg ?? false,
-      git: r.git ?? false,
       ytdlp: r.ytdlp ?? false,
       spotify: r.spotify ?? false,
       apple: r.apple ?? false,

@@ -125,7 +125,7 @@ interface Window {
     };
     updates: {
       getVersion: () => Promise<string>;
-      getBinaryVersions: () => Promise<{ python: string; git: string; ffmpeg: string }>;
+      getBinaryVersions: () => Promise<{ python: string; ffmpeg: string }>;
       check: () => Promise<{
         hasUpdate: boolean;
         currentVersion: string;

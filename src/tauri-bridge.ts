@@ -216,7 +216,6 @@ const tauriAPI = {
       const r = await invoke<{ versions: Record<string, string> }>('get_dependency_versions');
       return {
         python: r.versions['python'] ?? '',
-        git:    r.versions['git']    ?? '',
         ffmpeg: r.versions['ffmpeg'] ?? '',
       };
     },

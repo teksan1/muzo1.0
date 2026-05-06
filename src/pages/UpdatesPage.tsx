@@ -115,7 +115,6 @@ function AppUpdateSection() {
 
 const REQUIRED_DEPS = [
   { id: 'python', label: 'Python',  desc: 'Required — 3.10+',                          pipName: null, installable: true },
-  { id: 'git',    label: 'Git',     desc: 'Required — for git+ package installs',      pipName: null, installable: true },
   { id: 'ffmpeg', label: 'FFmpeg',  desc: 'Required — audio/video processing',         pipName: null, installable: true },
   { id: 'ytdlp',  label: 'yt-dlp', desc: 'Required — YouTube & audio downloader',     pipName: 'yt-dlp', installable: true },
 ];
@@ -152,7 +151,6 @@ function SystemDepsSection() {
       setDepStatus(deps);
       const mapped: Record<string, string> = {};
       if (binVers.python) mapped['python'] = binVers.python;
-      if (binVers.git)    mapped['git']    = binVers.git;
       if (binVers.ffmpeg) mapped['ffmpeg'] = binVers.ffmpeg;
       for (const dep of ALL_DEPS) {
         if (!dep.pipName) continue;
@@ -201,7 +199,6 @@ function SystemDepsSection() {
           setVersions((p) => ({
             ...p,
             ...(b.python ? { python: b.python } : {}),
-            ...(b.git    ? { git:    b.git    } : {}),
             ...(b.ffmpeg ? { ffmpeg: b.ffmpeg } : {}),
           }));
         }).catch((err: unknown) => {
