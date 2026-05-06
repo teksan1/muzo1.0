@@ -18,20 +18,14 @@ finish-args:
   - --socket=pulseaudio
   - --share=network
   - --filesystem=xdg-download
-  - --socket=pipewire
   - --talk-name=org.freedesktop.Notifications
   - --own-name=org.mpris.MediaPlayer2.mediaharbor
-  # WebKitGTK 2.46+ refuses to start inside Flatpak's user-namespace sandbox because it
-  # tries to create a nested namespace, which is not permitted. This flag disables
-  # WebKit's internal sandbox; the app remains inside Flatpak's outer sandbox.
-  - --env=WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
 
 modules:
   - name: mediaharbor
     buildsystem: simple
 
     build-options:
-      num-jobs: $FLATPAK_BUILDER_N_JOBS
       env:
         CARGO_HOME: /run/build/mediaharbor/cargo-home
         RUSTUP_HOME: /usr/lib/sdk/rust-stable
@@ -97,7 +91,7 @@ modules:
       # packaging which requires patchelf and linuxdeploy (not in the SDK).
       - cd src/app && cargo build --release
 
-      - install -Dm755 src/app/target/release/mediaharbor /app/bin/mediaharbor
+      - install -Dm755 target/release/mediaharbor /app/bin/mediaharbor
       - install -Dm644 org.mediaharbor.MediaHarbor.desktop /app/share/applications/org.mediaharbor.MediaHarbor.desktop
       - install -Dm644 org.mediaharbor.MediaHarbor.metainfo.xml /app/share/metainfo/org.mediaharbor.MediaHarbor.metainfo.xml
       - install -Dm644 icon-32.png /app/share/icons/hicolor/32x32/apps/org.mediaharbor.MediaHarbor.png
