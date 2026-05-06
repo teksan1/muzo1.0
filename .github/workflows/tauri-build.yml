@@ -5,6 +5,9 @@ on:
     tags: ['v*']
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 permissions:
   contents: write
 
@@ -18,9 +21,9 @@ jobs:
     name: Build React Frontend
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -29,7 +32,7 @@ jobs:
 
       - run: npm run build:react
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: dist-react
           path: dist-react/
@@ -82,17 +85,17 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       # ── Node (needed for npm ci) ──────────────────────────────────────────
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
 
       # ── Pre-built frontend (skip rebuilding on every platform) ────────────
       - name: Download pre-built frontend
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: dist-react
           path: dist-react/
@@ -238,7 +241,7 @@ jobs:
           echo "=== artifacts ==="
           ls -lh out/
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: tauri-${{ matrix.artifact }}
           path: out/
@@ -261,7 +264,7 @@ jobs:
       - name: Install prerequisites
         run: dnf install -y git curl findutils
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Install Fedora system dependencies
         run: |
@@ -276,7 +279,7 @@ jobs:
             gcc gcc-c++ make
 
       - name: Download pre-built frontend
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: dist-react
           path: dist-react/
@@ -311,7 +314,7 @@ jobs:
           echo "=== RPM artifacts ==="
           ls -lh out/
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: tauri-linux-rpm
           path: out/
@@ -325,7 +328,7 @@ jobs:
     name: Flatpak
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Cache flatpak-builder state
         uses: actions/cache@v5
@@ -359,7 +362,7 @@ jobs:
             MediaHarbor.flatpak \
             org.mediaharbor.MediaHarbor
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: flatpak
           path: MediaHarbor.flatpak
@@ -372,21 +375,21 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Read version
         id: ver
         run: echo "v=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
 
       - name: Download all Tauri artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           pattern: tauri-*
           path: assets/
           merge-multiple: true
 
       - name: Download Flatpak
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: flatpak
           path: assets/
@@ -443,7 +446,7 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           ref: main
 
@@ -472,7 +475,7 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Read version
         id: ver
