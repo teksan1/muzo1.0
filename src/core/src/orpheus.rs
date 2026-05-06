@@ -62,17 +62,11 @@ pub fn is_module_installed(id: &str) -> bool {
 }
 
 pub async fn install_orpheus<F: Fn(u8, &str) + Send>(progress: F) -> MhResult<()> {
-    if crate::sandbox::is_sandboxed() {
-        return Err(MhError::Unsupported(
-            "OrpheusDL cannot be installed inside a Flatpak or Snap sandbox because git is not available in the runtime environment.".to_string(),
-        ));
-    }
     let system_python = venv_manager::find_system_python().await?;
     let venv_dir = get_orpheus_venv_dir();
     let orpheus_dir = get_orpheus_dir();
 
     let venv_str = venv_dir.to_str().unwrap_or("").to_string();
-    let orpheus_str = orpheus_dir.to_str().unwrap_or("").to_string();
 
     progress(5, "Creating virtual environment");
     run_to_completion(&system_python, &["-m", "venv", &venv_str], None, None).await?;
@@ -82,12 +76,12 @@ pub async fn install_orpheus<F: Fn(u8, &str) + Send>(progress: F) -> MhResult<()
 
     progress(15, "Cloning OrpheusDL");
     if orpheus_dir.join(".git").exists() {
-        run_to_completion("git", &["-C", &orpheus_str, "pull"], None, None).await?;
+        git_pull(&orpheus_dir).await?;
     } else {
         if orpheus_dir.exists() {
             tokio::fs::remove_dir_all(&orpheus_dir).await.ok();
         }
-        run_to_completion("git", &["clone", ORPHEUS_GIT_URL, &orpheus_str], None, None).await?;
+        git_clone(ORPHEUS_GIT_URL, &orpheus_dir).await?;
     }
 
     progress(50, "Installing requirements");
@@ -101,34 +95,31 @@ pub async fn install_orpheus<F: Fn(u8, &str) + Send>(progress: F) -> MhResult<()
     tokio::fs::create_dir_all(orpheus_dir.join("modules")).await?;
     tokio::fs::create_dir_all(orpheus_dir.join("config")).await?;
 
+    progress(95, "Refreshing settings");
+    run_to_completion(&python_str, &["orpheus.py", "settings", "refresh"], None, Some(&orpheus_dir)).await.ok();
+
     progress(100, "Done");
     Ok(())
 }
 
 pub async fn install_module<F: Fn(u8, &str)>(module_id: &str, git_url: &str, progress: F) -> MhResult<()> {
-    if crate::sandbox::is_sandboxed() {
-        return Err(MhError::Unsupported(
-            "OrpheusDL modules cannot be installed inside a Flatpak or Snap sandbox because git is not available in the runtime environment.".to_string(),
-        ));
-    }
     let orpheus_dir = get_orpheus_dir();
     let module_dir = orpheus_dir.join("modules").join(module_id);
     let python = get_orpheus_python();
     let python_str = python.to_str().unwrap_or("python").to_string();
-    let module_str = module_dir.to_str().unwrap_or("").to_string();
 
     if module_dir.join(".git").exists() {
         progress(10, "Updating module");
-        run_to_completion("git", &["-C", &module_str, "pull"], None, None).await?;
+        git_pull(&module_dir).await?;
     } else {
         if module_dir.exists() {
             tokio::fs::remove_dir_all(&module_dir).await.ok();
         }
         progress(10, "Cloning module");
         if module_id == "tidal" || module_id == "nugs" {
-            run_to_completion("git", &["clone", "--recurse-submodules", git_url, &module_str], None, None).await?;
+            git_clone_recursive(git_url, &module_dir).await?;
         } else {
-            run_to_completion("git", &["clone", git_url, &module_str], None, None).await?;
+            git_clone(git_url, &module_dir).await?;
         }
     }
 
@@ -138,6 +129,9 @@ pub async fn install_module<F: Fn(u8, &str)>(module_id: &str, git_url: &str, pro
         let req_str = req_path.to_str().unwrap_or("").to_string();
         run_to_completion(&python_str, &["-m", "pip", "install", "-r", &req_str], None, None).await?;
     }
+
+    progress(90, "Refreshing settings");
+    run_to_completion(&python_str, &["orpheus.py", "settings", "refresh"], None, Some(&orpheus_dir)).await.ok();
 
     progress(100, "Done");
     Ok(())
@@ -504,6 +498,69 @@ pub async fn write_raw_settings_json(content: &str) -> MhResult<()> {
     tokio::fs::create_dir_all(&config_dir).await?;
     tokio::fs::write(config_dir.join("settings.json"), content).await?;
     Ok(())
+}
+
+async fn git_clone(url: &str, dest: &std::path::Path) -> MhResult<()> {
+    let url = url.to_string();
+    let dest = dest.to_path_buf();
+    tokio::task::spawn_blocking(move || {
+        git2::Repository::clone(&url, &dest)
+            .map(|_| ())
+            .map_err(|e| MhError::Other(e.to_string()))
+    })
+    .await
+    .map_err(|e| MhError::Other(e.to_string()))?
+}
+
+async fn git_clone_recursive(url: &str, dest: &std::path::Path) -> MhResult<()> {
+    let url = url.to_string();
+    let dest = dest.to_path_buf();
+    tokio::task::spawn_blocking(move || {
+        let repo = git2::Repository::clone(&url, &dest)
+            .map_err(|e| MhError::Other(e.to_string()))?;
+        let mut submodules = repo.submodules()
+            .map_err(|e| MhError::Other(e.to_string()))?;
+        for sub in submodules.iter_mut() {
+            sub.update(true, None)
+                .map_err(|e| MhError::Other(e.to_string()))?;
+        }
+        Ok(())
+    })
+    .await
+    .map_err(|e| MhError::Other(e.to_string()))?
+}
+
+async fn git_pull(repo_path: &std::path::Path) -> MhResult<()> {
+    let repo_path = repo_path.to_path_buf();
+    tokio::task::spawn_blocking(move || {
+        let repo = git2::Repository::open(&repo_path)
+            .map_err(|e| MhError::Other(e.to_string()))?;
+        let mut remote = repo.find_remote("origin")
+            .map_err(|e| MhError::Other(e.to_string()))?;
+        remote.fetch(&[] as &[&str], None, None)
+            .map_err(|e| MhError::Other(e.to_string()))?;
+        let fetch_head = repo.find_reference("FETCH_HEAD")
+            .map_err(|e| MhError::Other(e.to_string()))?;
+        let fetch_commit = repo.reference_to_annotated_commit(&fetch_head)
+            .map_err(|e| MhError::Other(e.to_string()))?;
+        let (analysis, _) = repo.merge_analysis(&[&fetch_commit])
+            .map_err(|e| MhError::Other(e.to_string()))?;
+        if analysis.is_fast_forward() {
+            let head = repo.head().map_err(|e| MhError::Other(e.to_string()))?;
+            let refname = head.name().unwrap_or("refs/heads/main").to_string();
+            let mut reference = repo.find_reference(&refname)
+                .map_err(|e| MhError::Other(e.to_string()))?;
+            reference.set_target(fetch_commit.id(), "fast-forward")
+                .map_err(|e| MhError::Other(e.to_string()))?;
+            repo.set_head(&refname)
+                .map_err(|e| MhError::Other(e.to_string()))?;
+            repo.checkout_head(Some(git2::build::CheckoutBuilder::default().force()))
+                .map_err(|e| MhError::Other(e.to_string()))?;
+        }
+        Ok(())
+    })
+    .await
+    .map_err(|e| MhError::Other(e.to_string()))?
 }
 
 fn strip_ansi_cr(s: &str) -> String {
