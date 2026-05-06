@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 #[cfg(target_os = "linux")]
 use tokio::fs;
+#[cfg(not(target_os = "macos"))]
 use tokio::process::Command;
 
 use crate::errors::{MhError, MhResult};

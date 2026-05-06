@@ -36,7 +36,7 @@ modules:
         CARGO_HOME: /run/build/mediaharbor/cargo-home
         RUSTUP_HOME: /usr/lib/sdk/rust-stable
         RUSTUP_TOOLCHAIN: stable
-        npm_config_cache: /run/build/mediaharbor/npm-cache
+        npm_config_cache: /run/build/mediaharbor/flatpak-node/npm-cache
         CARGO_BUILD_JOBS: ${FLATPAK_BUILDER_N_JOBS}
 
     sources:
