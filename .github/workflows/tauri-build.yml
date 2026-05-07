@@ -516,14 +516,18 @@ jobs:
           sed -i "s/^pkgrel=.*/pkgrel=1/"          PKGBUILD
           sed -i "s/sha256sums=('[^']*')/sha256sums=('${SHA256}')/" PKGBUILD
 
-          docker run --rm -v "$PWD:/pkg" -w /pkg archlinux:latest bash -c \
-            "pacman -Sy --noconfirm --needed base-devel 2>/dev/null && HOME=/root makepkg --printsrcinfo > .SRCINFO"
+          docker run --rm -v "$PWD:/pkg" -w /pkg archlinux:latest bash -c "
+            pacman -Sy --noconfirm --needed base-devel &&
+            useradd -m builder &&
+            chown -R builder /pkg &&
+            su builder -s /bin/bash -c 'cd /pkg && makepkg --printsrcinfo > .SRCINFO'
+          "
 
       - name: Commit and push to AUR
         run: |
           cd aur-repo
           git config user.email "noreply@mediaharbor.org"
-          git config user.name "Utku"
+          git config user.name "MediaHarbor-ci"
           git add PKGBUILD .SRCINFO
           git commit -m "update to v${{ steps.ver.outputs.v }}"
           git push
