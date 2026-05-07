@@ -1,6 +1,6 @@
 name: mediaharbor
 base: core24
-version: 'dev'
+version: '2.0.5'
 summary: Stream music and manage your local media library
 description: |
   MediaHarbor is a music downloader and player. Connect to Spotify, Tidal, Qobuz,
@@ -53,7 +53,7 @@ apps:
 parts:
   mediaharbor:
     plugin: dump
-    source: https://github.com/MediaHarbor/mediaharbor/releases/download/v1.1.9/MediaHarbor_1.1.9_amd64.deb
+    source: https://github.com/MediaHarbor/mediaharbor/releases/download/v2.0.5/MediaHarbor_2.0.5_amd64.deb
     source-type: deb
     organize:
       usr/bin/mediaharbor: bin/mediaharbor
