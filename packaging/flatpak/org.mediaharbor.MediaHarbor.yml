@@ -26,7 +26,6 @@ modules:
     buildsystem: simple
 
     build-options:
-      no-debuginfo: true
       env:
         CARGO_HOME: /run/build/mediaharbor/cargo-home
         RUSTUP_HOME: /usr/lib/sdk/rust-stable
