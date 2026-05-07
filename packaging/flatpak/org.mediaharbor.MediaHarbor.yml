@@ -19,7 +19,7 @@ finish-args:
   - --share=network
   - --filesystem=xdg-download
   - --talk-name=org.freedesktop.portal.Desktop
-  - --own-name=org.mpris.MediaPlayer2.$APP_ID
+  - --own-name=org.mpris.MediaPlayer2.org.mediaharbor.MediaHarbor
 
 modules:
   - name: mediaharbor
