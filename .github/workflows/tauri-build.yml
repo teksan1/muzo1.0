@@ -77,8 +77,6 @@ jobs:
             artifact: macos-arm64
 
     runs-on: ${{ matrix.os }}
-    env:
-      YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
     steps:
       - uses: actions/checkout@v6
 
@@ -245,8 +243,6 @@ jobs:
     name: Linux RPM (Fedora)
     needs: frontend
     runs-on: ubuntu-22.04
-    env:
-      YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
     container:
       image: fedora:41
     steps:
@@ -350,11 +346,7 @@ jobs:
           restore-keys: flatpak-builder-
 
       - name: Build Flatpak bundle
-        env:
-          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         run: |
-          sed -i "/npm_config_cache:/a\\        YOUTUBE_API_KEY: ${YOUTUBE_API_KEY}" \
-            packaging/flatpak/org.mediaharbor.MediaHarbor.yml
           sed -i "s/GIT_TAG_PLACEHOLDER/${GITHUB_REF_NAME}/" \
             packaging/flatpak/org.mediaharbor.MediaHarbor.yml
           sed -i "s/GIT_COMMIT_PLACEHOLDER/${GITHUB_SHA}/" \
