@@ -2,7 +2,7 @@ pkgname=mediaharbor
 pkgver=2.0.5
 pkgrel=1
 pkgdesc="MediaHarbor is all-in-one music streaming and downloading application built with Tauri and React."
-arch=('x86_64')
+arch=('x86_64' 'aarch64')
 url="https://github.com/MediaHarbor/mediaharbor"
 license=('GPL-3.0-or-later')
 
