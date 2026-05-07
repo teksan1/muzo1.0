@@ -310,29 +310,42 @@ jobs:
 
   # Builds from source using the Rust and Node SDK extensions.
   # Runs independently — does not depend on the tauri binary job.
+  # Matrix covers x86_64 and aarch64; aarch64 uses QEMU user-space emulation.
   flatpak:
-    name: Flatpak
+    name: Flatpak (${{ matrix.arch }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, aarch64]
     steps:
       - uses: actions/checkout@v6
 
       - name: Install flatpak and flatpak-builder
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y --no-install-recommends flatpak flatpak-builder
+          sudo apt-get install -y --no-install-recommends \
+            flatpak flatpak-builder \
+            qemu-user-static
+
+      - name: Register QEMU binfmt handlers
+        if: matrix.arch == 'aarch64'
+        run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+
       - name: Cache Flatpak runtimes
         id: cache-runtimes
         uses: actions/cache@v5
         with:
           path: ~/.local/share/flatpak
-          key: flatpak-runtimes-gnome-50-sdk-25.08
+          key: flatpak-runtimes-gnome-50-sdk-25.08-${{ matrix.arch }}
 
       - name: Install GNOME 50 runtime and SDK extensions
         if: steps.cache-runtimes.outputs.cache-hit != 'true'
         run: |
           flatpak remote-add --user --if-not-exists flathub \
             https://flathub.org/repo/flathub.flatpakrepo
-          flatpak install --user -y --noninteractive flathub \
+          flatpak install --user -y --noninteractive \
+            --arch=${{ matrix.arch }} flathub \
             org.gnome.Platform//50 \
             org.gnome.Sdk//50 \
             org.freedesktop.Sdk.Extension.rust-stable//25.08 \
@@ -342,8 +355,8 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ~/.local/share/flatpak-builder
-          key: flatpak-builder-${{ hashFiles('packaging/flatpak/cargo-sources.json', 'packaging/flatpak/generated-sources.json', 'packaging/flatpak/org.mediaharbor.MediaHarbor.yml') }}
-          restore-keys: flatpak-builder-
+          key: flatpak-builder-${{ matrix.arch }}-${{ hashFiles('packaging/flatpak/cargo-sources.json', 'packaging/flatpak/generated-sources.json', 'packaging/flatpak/org.mediaharbor.MediaHarbor.yml') }}
+          restore-keys: flatpak-builder-${{ matrix.arch }}-
 
       - name: Build Flatpak bundle
         run: |
@@ -354,20 +367,22 @@ jobs:
 
           flatpak-builder \
             --user \
+            --arch=${{ matrix.arch }} \
             --repo=flatpak-repo \
             --force-clean \
             flatpak-build-dir \
             packaging/flatpak/org.mediaharbor.MediaHarbor.yml
 
           flatpak build-bundle \
+            --arch=${{ matrix.arch }} \
             flatpak-repo \
-            MediaHarbor.flatpak \
+            MediaHarbor-${{ matrix.arch }}.flatpak \
             org.mediaharbor.MediaHarbor
 
       - uses: actions/upload-artifact@v7
         with:
-          name: flatpak
-          path: MediaHarbor.flatpak
+          name: flatpak-${{ matrix.arch }}
+          path: MediaHarbor-${{ matrix.arch }}.flatpak
           retention-days: 7
 
   # ── 5. GitHub Release ─────────────────────────────────────────────────────
@@ -390,11 +405,12 @@ jobs:
           path: assets/
           merge-multiple: true
 
-      - name: Download Flatpak
+      - name: Download Flatpak bundles
         uses: actions/download-artifact@v7
         with:
-          name: flatpak
+          pattern: flatpak-*
           path: assets/
+          merge-multiple: true
 
       - name: Build release body with SHA256 checksums
         shell: bash
