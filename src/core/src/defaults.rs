@@ -168,6 +168,8 @@ pub struct Settings {
     pub spotify_no_exceptions: bool,
     pub spotify_artist_media_option: String,
     pub spotify_prefer_video: bool,
+    pub spotify_session_type: String,
+    pub spotify_dll_path: String,
 
     pub apple_cookies_path: String,
     pub apple_output_path: String,
@@ -211,6 +213,9 @@ pub struct Settings {
     pub apple_use_wrapper: bool,
     pub apple_wrapper_account_url: String,
     pub apple_wrapper_decrypt_ip: String,
+    pub apple_artist_auto_select: String,
+    pub apple_playlist_folder_template: String,
+    pub apple_wrapper_m3u8_ip: String,
 
     pub orpheus_dl_enabled_modules: String,
     pub orpheus_download_quality: String,
@@ -387,6 +392,8 @@ impl Default for Settings {
             spotify_no_exceptions: false,
             spotify_artist_media_option: "albums".into(),
             spotify_prefer_video: false,
+            spotify_session_type: "librespot".into(),
+            spotify_dll_path: String::new(),
 
             apple_cookies_path: String::new(),
             apple_output_path: "Apple Music".into(),
@@ -430,6 +437,9 @@ impl Default for Settings {
             apple_use_wrapper: false,
             apple_wrapper_account_url: String::new(),
             apple_wrapper_decrypt_ip: String::new(),
+            apple_artist_auto_select: String::new(),
+            apple_playlist_folder_template: "Playlists/{playlist_name}".into(),
+            apple_wrapper_m3u8_ip: String::new(),
 
             orpheus_dl_enabled_modules: "tidal,qobuz,deezer".into(),
             orpheus_download_quality: "lossless".into(),

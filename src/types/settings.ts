@@ -147,6 +147,8 @@ export interface Settings {
   spotify_no_exceptions: boolean;
   spotify_artist_media_option: string;
   spotify_prefer_video: boolean;
+  spotify_session_type: string;
+  spotify_dll_path: string;
 
   apple_cookies_path: string;
   apple_output_path: string;
@@ -190,6 +192,9 @@ export interface Settings {
   apple_use_wrapper: boolean;
   apple_wrapper_account_url: string;
   apple_wrapper_decrypt_ip: string;
+  apple_artist_auto_select: string;
+  apple_playlist_folder_template: string;
+  apple_wrapper_m3u8_ip: string;
 
   orpheus_dl_enabled_modules: string;
   orpheus_download_quality: string;

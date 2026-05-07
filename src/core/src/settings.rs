@@ -36,7 +36,9 @@ pub fn apple_to_gamdl_key_map() -> HashMap<&'static str, &'static str> {
     m.insert("exclude_tags", "exclude_tags");
     m.insert("log_level", "log_level");
     m.insert("use_album_date", "use_album_date");
-    m.insert("fetch_extra_tags", "fetch_extra_tags");
+    m.insert("artist_auto_select", "artist_auto_select");
+    m.insert("playlist_folder_template", "playlist_folder_template");
+    m.insert("wrapper_m3u8_ip", "wrapper_m3u8_ip");
     m.insert("no_exceptions", "no_exceptions");
     m.insert("mv_codec_priority", "music_video_codec_priority");
     m.insert("mv_remux_format", "music_video_remux_format");
@@ -88,6 +90,8 @@ pub fn spotify_to_votify_key_map() -> HashMap<&'static str, &'static str> {
     m.insert("no_exceptions", "no_exceptions");
     m.insert("artist_media_option", "artist_media_option");
     m.insert("prefer_video", "prefer_video");
+    m.insert("session_type", "session_type");
+    m.insert("dll_path", "spotify_dll_path");
     m
 }
 

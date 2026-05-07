@@ -904,6 +904,16 @@ function SpotifyTab({ s, set, browseFile }: { s: Partial<Settings>; set: Setting
       </Section>
 
       <Section title="Authentication">
+        <Row label="Session Type" help="How votify authenticates with Spotify">
+          <Select value={s.spotify_session_type || 'librespot'} onValueChange={(v) => set('spotify_session_type', v)}>
+            <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="librespot">Librespot</SelectItem>
+              <SelectItem value="desktop">Desktop</SelectItem>
+              <SelectItem value="web">Web</SelectItem>
+            </SelectContent>
+          </Select>
+        </Row>
         <Row label="Cookies Path" help="Netscape format cookies file from spotify.com">
           <Input value={s.spotify_cookies_path || ''} onChange={(e) => set('spotify_cookies_path', e.target.value)} placeholder="Path to spotify.com cookies.txt" />
           <Button variant="outline" size="sm" onClick={() => browseFile('spotify_cookies_path')}>Browse</Button>
@@ -912,6 +922,12 @@ function SpotifyTab({ s, set, browseFile }: { s: Partial<Settings>; set: Setting
           <Input value={s.spotify_wvd_path || ''} onChange={(e) => set('spotify_wvd_path', e.target.value)} placeholder="Path to .wvd file" />
           <Button variant="outline" size="sm" onClick={() => browseFile('spotify_wvd_path')}>Browse</Button>
         </Row>
+        {(s.spotify_session_type || 'librespot') === 'desktop' && (
+          <Row label="Spotify DLL Path" help="Spotify DLL file for desktop session decryption">
+            <Input value={s.spotify_dll_path || ''} onChange={(e) => set('spotify_dll_path', e.target.value)} placeholder="Path to Spotify DLL" />
+            <Button variant="outline" size="sm" onClick={() => browseFile('spotify_dll_path')}>Browse</Button>
+          </Row>
+        )}
         <Check2 id="spotify_no_drm" label="No DRM (only download non-DRM content)" checked={s.spotify_no_drm ?? false} onChange={(v) => set('spotify_no_drm', v)} />
       </Section>
 
@@ -1083,6 +1099,9 @@ function AppleMusicTab({ s, set, browseFile }: { s: Partial<Settings>; set: Sett
         <Row label="No-album folder">
           <Input value={s.apple_template_folder_no_album || '{album_artist}/Unknown Album'} onChange={(e) => set('apple_template_folder_no_album', e.target.value)} />
         </Row>
+        <Row label="Playlist folder" help="{playlist_name}">
+          <Input value={s.apple_playlist_folder_template || 'Playlists/{playlist_name}'} onChange={(e) => set('apple_playlist_folder_template', e.target.value)} />
+        </Row>
         <Row label="Single-disc file" help="{track}, {title}">
           <Input value={s.apple_template_file_single_disc || '{track:02d} {title}'} onChange={(e) => set('apple_template_file_single_disc', e.target.value)} />
         </Row>
@@ -1176,9 +1195,27 @@ function AppleMusicTab({ s, set, browseFile }: { s: Partial<Settings>; set: Sett
         <Row label="Wrapper decrypt IP">
           <Input value={s.apple_wrapper_decrypt_ip || ''} onChange={(e) => set('apple_wrapper_decrypt_ip', e.target.value)} placeholder="127.0.0.1:8080" />
         </Row>
+        <Row label="Wrapper M3U8 IP" help="IP and port for wrapper M3U8 stream">
+          <Input value={s.apple_wrapper_m3u8_ip || ''} onChange={(e) => set('apple_wrapper_m3u8_ip', e.target.value)} placeholder="127.0.0.1:8080" />
+        </Row>
       </ToggleSection>
 
       <Section title="Misc">
+        <Row label="Artist auto-select" help="Auto-select content type when downloading an artist URL">
+          <Select value={s.apple_artist_auto_select || ''} onValueChange={(v) => set('apple_artist_auto_select', v)}>
+            <SelectTrigger className="w-48"><SelectValue placeholder="Ask interactively" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">Ask interactively</SelectItem>
+              <SelectItem value="main-albums">Main Albums</SelectItem>
+              <SelectItem value="compilation-albums">Compilations</SelectItem>
+              <SelectItem value="live-albums">Live Albums</SelectItem>
+              <SelectItem value="singles-eps">Singles & EPs</SelectItem>
+              <SelectItem value="all-albums">All Albums</SelectItem>
+              <SelectItem value="top-songs">Top Songs</SelectItem>
+              <SelectItem value="music-videos">Music Videos</SelectItem>
+            </SelectContent>
+          </Select>
+        </Row>
         <Check2 id="apple_save_playlist" label="Save playlist file" checked={s.apple_save_playlist ?? false} onChange={(v) => set('apple_save_playlist', v)} />
         <Check2 id="apple_overwrite" label="Overwrite existing files" checked={s.apple_overwrite ?? false} onChange={(v) => set('apple_overwrite', v)} />
         <Check2 id="apple_no_exceptions" label="Don't print exceptions" checked={s.apple_no_exceptions ?? false} onChange={(v) => set('apple_no_exceptions', v)} />
