@@ -92,7 +92,7 @@ pub fn detect_interactive_prompt(line: &str) -> Option<InteractivePromptType> {
     None
 }
 
-pub fn build_gamdl_args(settings: &Settings, url: &str, config_path: &Path) -> Vec<String> {
+pub fn build_gamdl_args(settings: &Settings, url: &str, config_path: &Path, quality: Option<&str>) -> Vec<String> {
     let mut args: Vec<String> = Vec::new();
 
     args.push("--config-path".into());
@@ -107,14 +107,19 @@ pub fn build_gamdl_args(settings: &Settings, url: &str, config_path: &Path) -> V
         args.push(output_path);
     }
 
+    if let Some(q) = quality {
+        args.push("--song-codec-priority".into());
+        args.push(q.to_string());
+    }
+
     if !url.is_empty() {
         args.push(url.to_string());
     }
     args
 }
 
-pub fn build_votify_args(settings: &Settings, url: &str, config_path: &Path) -> Vec<String> {
-    build_votify_args_inner(settings, config_path, false, Some(url), None, None)
+pub fn build_votify_args(settings: &Settings, url: &str, config_path: &Path, quality: Option<&str>) -> Vec<String> {
+    build_votify_args_inner(settings, config_path, false, Some(url), None, quality)
 }
 
 pub fn build_votify_batch_args(
@@ -132,7 +137,7 @@ fn build_votify_args_inner(
     is_batch: bool,
     url: Option<&str>,
     batch_file: Option<&Path>,
-    _quality_override: Option<&str>,
+    quality_override: Option<&str>,
 ) -> Vec<String> {
     let mut args: Vec<String> = Vec::new();
 
@@ -146,6 +151,11 @@ fn build_votify_args_inner(
             .to_string();
         args.push("-o".into());
         args.push(output_path);
+    }
+
+    if let Some(q) = quality_override {
+        args.push("--audio-quality".into());
+        args.push(q.to_string());
     }
 
     if is_batch {
@@ -262,12 +272,13 @@ async fn spawn_gamdl_process(
 pub async fn download_with_gamdl(
     settings: &Settings,
     url: &str,
+    quality: Option<&str>,
     config_path: &Path,
     on_progress: impl Fn(BatchProgress) + Send + 'static,
     on_prompt: impl Fn(InteractivePromptType) + Send + 'static,
     cancel_flag: Arc<AtomicBool>,
 ) -> MhResult<()> {
-    let args = build_gamdl_args(settings, url, config_path);
+    let args = build_gamdl_args(settings, url, config_path, quality);
 
     let mut handle = spawn_gamdl_process("gamdl", &args).await?;
 
@@ -283,12 +294,13 @@ pub async fn download_with_gamdl(
 pub async fn download_with_votify(
     settings: &Settings,
     url: &str,
+    quality: Option<&str>,
     config_path: &Path,
     on_progress: impl Fn(BatchProgress) + Send + 'static,
     on_prompt: impl Fn(InteractivePromptType) + Send + 'static,
     cancel_flag: Arc<AtomicBool>,
 ) -> MhResult<()> {
-    let args = build_votify_args(settings, url, config_path);
+    let args = build_votify_args(settings, url, config_path, quality);
 
     let mut handle = spawn_gamdl_process("votify", &args).await?;
 
@@ -331,7 +343,7 @@ pub async fn download_with_gamdl_batch(
     on_prompt: impl Fn(InteractivePromptType) + Send + 'static,
     cancel_flag: Arc<AtomicBool>,
 ) -> MhResult<()> {
-    let mut args = build_gamdl_args(settings, "", config_path);
+    let mut args = build_gamdl_args(settings, "", config_path, None);
     args.pop(); // remove empty url
     args.push("-r".into());
     args.push(batch_file.to_string_lossy().to_string());
@@ -571,7 +583,7 @@ mod tests {
         let tmp = std::env::temp_dir();
         let config = tmp.join("gamdl_config.ini");
         let config_str = config.to_string_lossy().to_string();
-        let args = build_gamdl_args(&settings, "https://music.apple.com/album/123", &config);
+        let args = build_gamdl_args(&settings, "https://music.apple.com/album/123", &config, None);
         assert!(args.contains(&"--config-path".to_string()));
         assert!(args.contains(&config_str));
         assert_eq!(args.last().unwrap(), "https://music.apple.com/album/123");
@@ -582,7 +594,7 @@ mod tests {
         let settings = Settings::default();
         let tmp = std::env::temp_dir();
         let config = tmp.join("votify_config.ini");
-        let args = build_votify_args(&settings, "https://open.spotify.com/track/abc", &config);
+        let args = build_votify_args(&settings, "https://open.spotify.com/track/abc", &config, None);
         assert!(args.contains(&"--config-path".to_string()));
         assert_eq!(args.last().unwrap(), "https://open.spotify.com/track/abc");
     }

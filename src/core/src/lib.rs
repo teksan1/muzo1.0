@@ -2269,10 +2269,12 @@ impl BackendState {
 
         tokio::spawn(async move {
             let _ = downloads::gamrip::write_votify_config(&settings, &config_path).await;
+            let quality = req.meta.quality.clone();
 
             let result = downloads::gamrip::download_with_votify(
                 &settings,
                 &req.url,
+                quality.as_deref(),
                 &config_path,
                 {
                     let emitter_p = emitter.clone();
@@ -2354,10 +2356,12 @@ impl BackendState {
 
         tokio::spawn(async move {
             let _ = downloads::gamrip::write_gamdl_config(&settings, &config_path).await;
+            let quality = req.meta.quality.clone();
 
             let result = downloads::gamrip::download_with_gamdl(
                 &settings,
                 &req.url,
+                quality.as_deref(),
                 &config_path,
                 {
                     let emitter_p = emitter.clone();

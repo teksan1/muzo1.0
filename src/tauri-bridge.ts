@@ -314,6 +314,7 @@ const tauriAPI = {
       invoke('start_spotify_download', {
         req: {
           url: data.url, outputDir,
+          quality: data.quality != null ? String(data.quality) : null,
           title: data.title ?? null,
           artist: data.artist ?? null,
           album: data.album ?? null,
@@ -327,6 +328,7 @@ const tauriAPI = {
       invoke('start_apple_download', {
         req: {
           url: data.url, outputDir,
+          quality: data.quality != null ? String(data.quality) : null,
           title: data.title ?? null,
           artist: data.artist ?? null,
           album: data.album ?? null,

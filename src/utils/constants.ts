@@ -60,8 +60,11 @@ export const QUALITY_OPTIONS: Record<string, QualityOption[]> = {
     { value: '0', label: '128 kbps MP3' },
   ],
   spotify: [
+    { value: 'flac-flac-24',  label: 'FLAC 24-bit (Hi-Res)' },
+    { value: 'flac-mp4-24',   label: 'FLAC MP4 24-bit (Hi-Res)' },
+    { value: 'flac-flac',     label: 'FLAC (Lossless)' },
+    { value: 'flac-mp4',      label: 'FLAC MP4 (Lossless)' },
     { value: 'aac-high',      label: 'AAC High' },
-    { value: 'flac',           label: 'FLAC (Lossless)' },
     { value: 'vorbis-high',   label: 'Vorbis High' },
     { value: 'vorbis-medium', label: 'Vorbis Medium' },
     { value: 'aac-medium',    label: 'AAC Medium' },
