@@ -1,6 +1,6 @@
 {
   "name": "mediaharbor",
-  "version": "2.0.4",
+  "version": "2.0.5",
   "scripts": {
     "postinstall": "node scripts/patch-librespot.js && patch-package",
     "dev": "vite",
