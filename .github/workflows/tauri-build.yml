@@ -326,7 +326,8 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y --no-install-recommends \
             flatpak flatpak-builder \
-            qemu-user-static
+            qemu-user-static \
+            elfutils
 
       - name: Register QEMU binfmt handlers
         if: matrix.arch == 'aarch64'
