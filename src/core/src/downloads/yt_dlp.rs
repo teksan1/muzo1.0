@@ -751,6 +751,7 @@ pub async fn download_music(
     args: YtDlpMusicArgs,
     yt_dlp_cmd: &str,
     on_progress: impl Fn(DownloadProgress) + Send + 'static,
+    on_log: impl Fn(String) + Send + 'static,
     cancel_flag: Arc<AtomicBool>,
 ) -> MhResult<()> {
     let is_playlist = args.is_playlist;
@@ -803,6 +804,7 @@ pub async fn download_music(
             Ok(Some((source, line))) => {
                 last_activity = Instant::now();
 
+                on_log(line.clone());
                 match source {
                     LineSource::Stdout => {
                         full_output.push_str(&line);
@@ -877,6 +879,7 @@ pub async fn download_video(
     args: YtDlpVideoArgs,
     yt_dlp_cmd: &str,
     on_progress: impl Fn(DownloadProgress) + Send + 'static,
+    on_log: impl Fn(String) + Send + 'static,
     cancel_flag: Arc<AtomicBool>,
 ) -> MhResult<()> {
     let is_playlist = args.is_playlist;
@@ -930,6 +933,7 @@ pub async fn download_video(
             Ok(Some((source, line))) => {
                 last_activity = Instant::now();
 
+                on_log(line.clone());
                 match source {
                     LineSource::Stdout => {
                         full_output.push_str(&line);

@@ -276,6 +276,7 @@ pub async fn download_with_gamdl(
     config_path: &Path,
     on_progress: impl Fn(BatchProgress) + Send + 'static,
     on_prompt: impl Fn(InteractivePromptType) + Send + 'static,
+    on_log: impl Fn(String) + Send + 'static,
     cancel_flag: Arc<AtomicBool>,
 ) -> MhResult<()> {
     let args = build_gamdl_args(settings, url, config_path, quality);
@@ -287,6 +288,7 @@ pub async fn download_with_gamdl(
         cancel_flag,
         on_progress,
         on_prompt,
+        on_log,
     )
     .await
 }
@@ -298,6 +300,7 @@ pub async fn download_with_votify(
     config_path: &Path,
     on_progress: impl Fn(BatchProgress) + Send + 'static,
     on_prompt: impl Fn(InteractivePromptType) + Send + 'static,
+    on_log: impl Fn(String) + Send + 'static,
     cancel_flag: Arc<AtomicBool>,
 ) -> MhResult<()> {
     let args = build_votify_args(settings, url, config_path, quality);
@@ -309,6 +312,7 @@ pub async fn download_with_votify(
         cancel_flag,
         on_progress,
         on_prompt,
+        on_log,
     )
     .await
 }
@@ -320,6 +324,7 @@ pub async fn download_with_votify_batch(
     config_path: &Path,
     on_progress: impl Fn(BatchProgress) + Send + 'static,
     on_prompt: impl Fn(InteractivePromptType) + Send + 'static,
+    on_log: impl Fn(String) + Send + 'static,
     cancel_flag: Arc<AtomicBool>,
 ) -> MhResult<()> {
     let args = build_votify_batch_args(settings, batch_file, quality, config_path);
@@ -331,6 +336,7 @@ pub async fn download_with_votify_batch(
         cancel_flag,
         on_progress,
         on_prompt,
+        on_log,
     )
     .await
 }
@@ -341,6 +347,7 @@ pub async fn download_with_gamdl_batch(
     config_path: &Path,
     on_progress: impl Fn(BatchProgress) + Send + 'static,
     on_prompt: impl Fn(InteractivePromptType) + Send + 'static,
+    on_log: impl Fn(String) + Send + 'static,
     cancel_flag: Arc<AtomicBool>,
 ) -> MhResult<()> {
     let mut args = build_gamdl_args(settings, "", config_path, None);
@@ -355,6 +362,7 @@ pub async fn download_with_gamdl_batch(
         cancel_flag,
         on_progress,
         on_prompt,
+        on_log,
     )
     .await
 }
@@ -364,6 +372,7 @@ async fn run_gamrip_loop(
     cancel_flag: Arc<AtomicBool>,
     on_progress: impl Fn(BatchProgress) + Send + 'static,
     on_prompt: impl Fn(InteractivePromptType) + Send + 'static,
+    on_log: impl Fn(String) + Send + 'static,
 ) -> MhResult<()> {
     let mut total_tracks: u32 = 0;
     let mut completed_tracks: u32 = 0;
@@ -384,6 +393,7 @@ async fn run_gamrip_loop(
             Ok(Some((_source, line))) => {
                 full_output.push_str(&line);
                 full_output.push('\n');
+                on_log(line.clone());
 
                 let stripped = ANSI_RE.replace_all(&line, "");
                 let clean_line = stripped.trim_start_matches("Error: ").trim().to_string();

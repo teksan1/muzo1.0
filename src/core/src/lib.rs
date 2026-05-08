@@ -2091,6 +2091,7 @@ impl BackendState {
             tokio::fs::create_dir_all(&effective_output_dir).await.ok();
 
             let emitter_p = emitter.clone();
+            let emitter_log = emitter.clone();
             let result = download_music(args, &yt_dlp_cmd, move |p| {
                 let spd = if p.speed.is_empty() { None } else { Some(p.speed.clone()) };
                 let eta = if p.eta.is_empty() { None } else { Some(p.eta.clone()) };
@@ -2102,6 +2103,14 @@ impl BackendState {
                     status: "downloading".into(),
                     item_index: p.item_index,
                     item_total: p.item_total,
+                });
+            }, move |line| {
+                emitter_log.emit_log(&ipc_contract::BackendLogEvent {
+                    level: if line.contains("ERROR") || line.contains("error") { "error" } else { "info" }.to_string(),
+                    source: "yt-dlp".to_string(),
+                    title: "yt-dlp".to_string(),
+                    message: line,
+                    timestamp: chrono::Utc::now().to_rfc3339(),
                 });
             }, cancel_flag).await;
 
@@ -2194,6 +2203,7 @@ impl BackendState {
             }
 
             let emitter_p = emitter.clone();
+            let emitter_log = emitter.clone();
             let result = download_video(args, &yt_dlp_cmd, move |p| {
                 let spd = if p.speed.is_empty() { None } else { Some(p.speed.clone()) };
                 let eta = if p.eta.is_empty() { None } else { Some(p.eta.clone()) };
@@ -2205,6 +2215,14 @@ impl BackendState {
                     status: "downloading".into(),
                     item_index: p.item_index,
                     item_total: p.item_total,
+                });
+            }, move |line| {
+                emitter_log.emit_log(&ipc_contract::BackendLogEvent {
+                    level: if line.contains("ERROR") || line.contains("error") { "error" } else { "info" }.to_string(),
+                    source: "yt-dlp".to_string(),
+                    title: "yt-dlp".to_string(),
+                    message: line,
+                    timestamp: chrono::Utc::now().to_rfc3339(),
                 });
             }, cancel_flag).await;
 
@@ -2291,6 +2309,18 @@ impl BackendState {
                     }
                 },
                 |_| {},
+                {
+                    let emitter_log = emitter.clone();
+                    move |line: String| {
+                        emitter_log.emit_log(&ipc_contract::BackendLogEvent {
+                            level: if line.contains("[CRITICAL") || line.contains("[ERROR") { "error" } else { "info" }.to_string(),
+                            source: "votify".to_string(),
+                            title: "Votify".to_string(),
+                            message: line,
+                            timestamp: chrono::Utc::now().to_rfc3339(),
+                        });
+                    }
+                },
                 cancel_flag,
             )
             .await;
@@ -2378,6 +2408,18 @@ impl BackendState {
                     }
                 },
                 |_| {},
+                {
+                    let emitter_log = emitter.clone();
+                    move |line: String| {
+                        emitter_log.emit_log(&ipc_contract::BackendLogEvent {
+                            level: if line.contains("[CRITICAL") || line.contains("[ERROR") { "error" } else { "info" }.to_string(),
+                            source: "gamdl".to_string(),
+                            title: "gamdl".to_string(),
+                            message: line,
+                            timestamp: chrono::Utc::now().to_rfc3339(),
+                        });
+                    }
+                },
                 cancel_flag,
             )
             .await;
