@@ -47,6 +47,10 @@ static PROGRESS_RE: Lazy<Regex> =
 static TRACK_COUNT_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"\[Track\s+(\d+)/(\d+)\]").unwrap());
 
+// votify uses "[URL N/N]" instead of "[Track N/N]"
+static URL_COUNT_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"\[URL\s+(\d+)/(\d+)\]").unwrap());
+
 static FOUND_TRACKS_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"Found\s+(\d+)\s+tracks?").unwrap());
 
@@ -431,6 +435,24 @@ async fn run_gamrip_loop(
                         percent: pct,
                     });
                     last_progress_emit = Instant::now();
+                } else if let Some(caps) = URL_COUNT_RE.captures(&clean_line) {
+                    // votify uses [URL N/N] instead of [Track N/N]
+                    total_tracks = caps[2].parse().unwrap_or(total_tracks);
+                    let current_idx: u32 = caps[1].parse().unwrap_or(1);
+                    completed_tracks = current_idx.saturating_sub(1);
+
+                    let pct = if total_tracks > 0 {
+                        (completed_tracks as f32 / total_tracks as f32 * 100.0).min(99.0)
+                    } else {
+                        0.0
+                    };
+                    on_progress(BatchProgress {
+                        completed: completed_tracks,
+                        total: total_tracks,
+                        current_track: current_track.clone(),
+                        percent: pct,
+                    });
+                    last_progress_emit = Instant::now();
                 }
 
                 if let Some(caps) = FOUND_TRACKS_RE.captures(&clean_line) {
@@ -492,23 +514,25 @@ async fn run_gamrip_loop(
     let status = handle.child.wait().await?;
     let exit_code = status.code().unwrap_or(-1);
 
-    if exit_code != 0 {
-        if let Some(caps) = FINISHED_ERRORS_RE.captures(&full_output) {
-            let n: u32 = caps[1].parse().unwrap_or(1);
-            if n > 0 {
-                let skip_msg = if !skipped_tracks.is_empty() {
-                    skipped_tracks
-                        .iter()
-                        .map(|(t, r)| format!("\"{}\" skipped: {}", t, r))
-                        .collect::<Vec<_>>()
-                        .join("; ")
-                } else {
-                    format!("Finished with {} error(s)", n)
-                };
-                return Err(MhError::Subprocess(skip_msg));
-            }
+    // Both gamdl and votify always exit with code 0 (they use `return` not `sys.exit(1)`),
+    // so check for "Finished with N error(s)" regardless of exit code.
+    if let Some(caps) = FINISHED_ERRORS_RE.captures(&full_output) {
+        let n: u32 = caps[1].parse().unwrap_or(1);
+        if n > 0 {
+            let skip_msg = if !skipped_tracks.is_empty() {
+                skipped_tracks
+                    .iter()
+                    .map(|(t, r)| format!("\"{}\" skipped: {}", t, r))
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            } else {
+                format!("Finished with {} error(s)", n)
+            };
+            return Err(MhError::Subprocess(skip_msg));
         }
+    }
 
+    if exit_code != 0 {
         return Err(MhError::Subprocess(format!(
             "Process exited with code {}: {}",
             exit_code,
@@ -523,6 +547,17 @@ async fn run_gamrip_loop(
             .collect::<Vec<_>>()
             .join("; ");
         return Err(MhError::Subprocess(format!("All tracks skipped: {}", skip_msg)));
+    }
+
+    if total_tracks == 0 && completed_tracks == 0 {
+        let error_line = full_output
+            .lines()
+            .filter(|l| l.contains("[CRITICAL") || l.contains("[ERROR"))
+            .last()
+            .map(|s| s.trim().to_string());
+        if let Some(msg) = error_line {
+            return Err(MhError::Subprocess(msg));
+        }
     }
 
     on_progress(BatchProgress {
