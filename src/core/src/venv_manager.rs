@@ -99,6 +99,34 @@ pub fn resolve_ffmpeg() -> String {
 }
 
 pub async fn find_system_python() -> MhResult<String> {
+    // On Unix, probe absolute versioned paths from newest to oldest first.
+    // Returning an absolute versioned path (e.g. /usr/bin/python3.13) rather
+    // than the bare "python3" symlink means the venv stays pinned to one minor
+    // version and is not broken by system upgrades or pyenv changes.
+    #[cfg(not(target_os = "windows"))]
+    {
+        let prefixes = ["/app/bin", "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin"];
+        for minor in (10u32..=20).rev() {
+            for &prefix in &prefixes {
+                let path = format!("{}/python3.{}", prefix, minor);
+                if !Path::new(&path).exists() {
+                    continue;
+                }
+                let (stdout, stderr, code) =
+                    run_to_completion(&path, &["--version"], None, None)
+                        .await
+                        .unwrap_or_default();
+                if code != 0 {
+                    continue;
+                }
+                let output = if stdout.is_empty() { &stderr } else { &stdout };
+                if python_version_ok(output.trim()) {
+                    return Ok(path);
+                }
+            }
+        }
+    }
+
     let candidates: &[&str] = if cfg!(windows) {
         &["py", "python3", "python"]
     } else {
@@ -116,19 +144,8 @@ pub async fn find_system_python() -> MhResult<String> {
         }
 
         let output = if stdout.is_empty() { &stderr } else { &stdout };
-        if let Some(caps) = output
-            .trim()
-            .strip_prefix("Python ")
-            .and_then(|v| {
-                let mut parts = v.split('.');
-                let major: u32 = parts.next()?.parse().ok()?;
-                let minor: u32 = parts.next()?.parse().ok()?;
-                Some((major, minor))
-            })
-        {
-            if caps.0 == 3 && caps.1 >= 10 {
-                return Ok(cmd.to_string());
-            }
+        if python_version_ok(output.trim()) {
+            return Ok(cmd.to_string());
         }
     }
 
@@ -140,6 +157,48 @@ pub async fn find_system_python() -> MhResult<String> {
         "No suitable Python 3.10+ installation found. Please install Python 3.10 or newer."
             .into(),
     ))
+}
+
+fn python_version_ok(output: &str) -> bool {
+    output
+        .strip_prefix("Python ")
+        .and_then(|v| {
+            let mut parts = v.split('.');
+            let major: u32 = parts.next()?.parse().ok()?;
+            let minor: u32 = parts.next()?.parse().ok()?;
+            Some(major == 3 && minor >= 10)
+        })
+        .unwrap_or(false)
+}
+
+fn read_venv_version() -> Option<(u32, u32)> {
+    let content = std::fs::read_to_string(get_venv_dir().join("pyvenv.cfg")).ok()?;
+    for line in content.lines() {
+        if let Some(val) = line.strip_prefix("version = ") {
+            let mut parts = val.trim().split('.');
+            let major: u32 = parts.next()?.parse().ok()?;
+            let minor: u32 = parts.next()?.parse().ok()?;
+            return Some((major, minor));
+        }
+    }
+    None
+}
+
+async fn get_python_minor_version(python: &str) -> Option<(u32, u32)> {
+    let (stdout, stderr, code) =
+        run_to_completion(python, &["--version"], None, None)
+            .await
+            .ok()?;
+    if code != 0 {
+        return None;
+    }
+    let output = if stdout.is_empty() { &stderr } else { &stdout };
+    output.trim().strip_prefix("Python ").and_then(|v| {
+        let mut parts = v.split('.');
+        let major: u32 = parts.next()?.parse().ok()?;
+        let minor: u32 = parts.next()?.parse().ok()?;
+        Some((major, minor))
+    })
 }
 
 async fn scan_filesystem_python() -> Option<String> {
@@ -224,15 +283,8 @@ async fn scan_filesystem_python() -> Option<String> {
             continue;
         }
         let output = if stdout.is_empty() { &stderr } else { &stdout };
-        if let Some((major, minor)) = output.trim().strip_prefix("Python ").and_then(|v| {
-            let mut parts = v.split('.');
-            let major: u32 = parts.next()?.parse().ok()?;
-            let minor: u32 = parts.next()?.parse().ok()?;
-            Some((major, minor))
-        }) {
-            if major == 3 && minor >= 10 {
-                return Some(path_str);
-            }
+        if python_version_ok(output.trim()) {
+            return Some(path_str);
         }
     }
 
@@ -255,18 +307,26 @@ pub async fn ensure_venv<F>(on_progress: F) -> MhResult<()>
 where
     F: Fn(u8, &str) + Send,
 {
-    if is_venv_ready() && venv_pip_works().await {
-        return Ok(());
-    }
-
     let venv_dir = get_venv_dir();
+    // Resolve the system Python once upfront — needed in both the healthy
+    // fast-path check and the recreation path.
+    let system_python = find_system_python().await?;
 
     if is_venv_ready() {
+        // Compare the venv's recorded Python minor version against the current
+        // system Python. A mismatch (e.g. runtime upgrade) means we must
+        // rebuild even if the binary still exists and pip appears to run.
+        let venv_ver = read_venv_version();
+        let sys_ver = get_python_minor_version(&system_python).await;
+        let version_ok = matches!((venv_ver, sys_ver), (Some(v), Some(s)) if v == s);
+
+        if version_ok && venv_pip_works().await {
+            return Ok(());
+        }
+
         on_progress(2, "Rebuilding Python environment after system update...");
         tokio::fs::remove_dir_all(&venv_dir).await.ok();
     }
-
-    let system_python = find_system_python().await?;
 
     if let Some(parent) = venv_dir.parent() {
         tokio::fs::create_dir_all(parent).await?;
@@ -274,9 +334,13 @@ where
 
     on_progress(5, "Creating MediaHarbor Python environment...");
 
+    // --copies makes the venv use a real copy of the Python binary instead of
+    // a symlink. This pins the venv to the exact Python minor version it was
+    // created with, so changes to the system python3 symlink (upgrades, pyenv,
+    // Flatpak runtime bumps) cannot silently break the installed packages.
     let (_, stderr, code) = run_to_completion(
         &system_python,
-        &["-m", "venv", venv_dir.to_str().unwrap_or(".")],
+        &["-m", "venv", "--copies", venv_dir.to_str().unwrap_or(".")],
         None,
         None,
     )
