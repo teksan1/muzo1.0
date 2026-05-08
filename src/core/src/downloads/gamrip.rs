@@ -190,6 +190,24 @@ async fn spawn_gamdl_process(
     let resolved = resolve_command(command, &[]);
     let resolved_str = resolved.to_string_lossy().to_string();
 
+    let venv_dir = crate::venv_manager::get_venv_dir();
+    let venv_bin = if cfg!(windows) {
+        venv_dir.join("Scripts")
+    } else {
+        venv_dir.join("bin")
+    };
+    let existing_path = std::env::var("PATH").unwrap_or_default();
+    let new_path = if existing_path.is_empty() {
+        venv_bin.to_string_lossy().to_string()
+    } else {
+        format!(
+            "{}{}{}",
+            venv_bin.to_string_lossy(),
+            if cfg!(windows) { ";" } else { ":" },
+            existing_path
+        )
+    };
+
     let mut cmd = Command::new(&resolved_str);
     cmd.args(args)
         .stdout(Stdio::piped())
@@ -198,7 +216,10 @@ async fn spawn_gamdl_process(
         .env("PYTHONUNBUFFERED", "1")
         .env("PYTHONIOENCODING", "utf-8")
         .env("LANG", "en_US.UTF-8")
-        .env("LC_ALL", "en_US.UTF-8");
+        .env("LC_ALL", "en_US.UTF-8")
+        .env("VIRTUAL_ENV", &venv_dir)
+        .env("PYTHONPATH", "")
+        .env("PATH", new_path);
     crate::subprocess::apply_no_window(&mut cmd);
 
     let mut child = cmd.spawn().map_err(|e| {
