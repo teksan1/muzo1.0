@@ -392,7 +392,7 @@ impl Default for Settings {
             spotify_no_exceptions: false,
             spotify_artist_media_option: "albums".into(),
             spotify_prefer_video: false,
-            spotify_session_type: "librespot".into(),
+            spotify_session_type: "web".into(),
             spotify_dll_path: String::new(),
 
             apple_cookies_path: String::new(),
